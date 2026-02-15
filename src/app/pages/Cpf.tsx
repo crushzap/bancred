@@ -94,7 +94,7 @@ export default function Cpf() {
           'http://localhost:3005/consulta/cpf',
           'http://127.0.0.1:3005/consulta/cpf',
         ]
-      : ['https://confirabancred.com/consulta/cpf']
+      : [`${window.location.origin}/consulta/cpf`, `${window.location.origin}/consulta/cpf.php`]
     let dados: Record<string, string> | null = null
     for (const url of urls) {
       try {

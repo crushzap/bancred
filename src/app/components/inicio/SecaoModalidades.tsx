@@ -3,11 +3,13 @@ import CartaoModalidade from './CartaoModalidade'
 
 const modalidades = [
   {
+    id: 'negativados',
     destaque: 'MAIS PROCURADO',
     titulo: 'Para Negativados',
     descricao: 'CPF com restrições no Serasa/SPC',
     extra: '1ª parcela em 90 dias',
     faixa: 'R$ 18.000',
+    teto: 18000,
     testId: 'button-simulate-negativados',
     icone: (
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -19,10 +21,12 @@ const modalidades = [
     ),
   },
   {
+    id: 'pessoa-fisica',
     titulo: 'Pessoa Física',
     descricao: 'CPF sem restrições, tire planos do papel',
     extra: '1ª parcela em 90 dias',
     faixa: 'R$ 27.000',
+    teto: 27000,
     testId: 'button-simulate-pf',
     icone: (
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -34,10 +38,12 @@ const modalidades = [
     ),
   },
   {
+    id: 'pessoa-juridica',
     titulo: 'Pessoa Jurídica',
     descricao: 'Capital de giro para sua empresa crescer',
     extra: '1ª parcela em 120 dias',
     faixa: 'R$ 50.000',
+    teto: 50000,
     testId: 'button-simulate-pj',
     icone: (
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -80,7 +86,13 @@ export default function SecaoModalidades() {
               extra={modalidade.extra}
               faixa={modalidade.faixa}
               icone={modalidade.icone}
-              onSimular={() => navigate('/cpf')}
+              onSimular={() => {
+                window.sessionStorage.setItem(
+                  'modalidadeSelecionada',
+                  JSON.stringify({ id: modalidade.id, titulo: modalidade.titulo, teto: modalidade.teto }),
+                )
+                navigate('/cpf')
+              }}
               testId={modalidade.testId}
             />
           ))}

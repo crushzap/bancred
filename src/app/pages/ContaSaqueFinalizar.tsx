@@ -1,10 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 type SimulacaoData = {
   valorDesejado: number
   parcelas: number
   parcelaMensal: number
+}
+
+type ModalidadeSelecionada = {
+  id: string
+  titulo: string
+  teto: number
 }
 
 function formatarMoeda(valor: number) {
@@ -14,6 +20,7 @@ function formatarMoeda(valor: number) {
 export default function ContaSaqueFinalizar() {
   const navigate = useNavigate()
   const [plano, setPlano] = useState('aprovado')
+  const [mostrarOfertas, setMostrarOfertas] = useState(false)
   const simulacao = useMemo<SimulacaoData | null>(() => {
     const bruto = window.sessionStorage.getItem('simulacaoData')
     if (!bruto) return null
@@ -23,23 +30,61 @@ export default function ContaSaqueFinalizar() {
       return null
     }
   }, [])
+  const modalidade = useMemo<ModalidadeSelecionada | null>(() => {
+    const bruto = window.sessionStorage.getItem('modalidadeSelecionada')
+    if (!bruto) return null
+    try {
+      return JSON.parse(bruto) as ModalidadeSelecionada
+    } catch {
+      return null
+    }
+  }, [])
   const valor = simulacao?.valorDesejado ?? 5000
   const parcelasAprovadas = simulacao?.parcelas ?? 12
   const parcelaMensal = simulacao?.parcelaMensal ?? 502.01
+  const tetoModalidade = modalidade?.teto ?? 20000
   const aprovado = {
     id: 'aprovado',
     valor,
     seguro: 19,
     parcelas: `${parcelasAprovadas}x de ${formatarMoeda(parcelaMensal)}`,
   }
-  const ofertas = [
-    { id: '7000', valor: 7000, seguro: 27, parcelas: '12x de R$ 702,81' },
-    { id: '11000', valor: 11000, seguro: 37, parcelas: '12x de R$ 1.104,42' },
-  ]
+  const ofertas = useMemo(() => {
+    const valorBase = Math.max(valor, 1)
+    const teto = Math.max(valor, tetoModalidade)
+    const incremento1 = Math.max(valor * 0.15, 500)
+    const incremento2 = Math.max(valor * 0.3, 1000)
+    let valor1 = Math.min(valor + incremento1, teto)
+    if (valor1 <= valor) valor1 = Math.min(valor + 500, teto)
+    let valor2 = Math.min(valor + incremento2, teto)
+    if (valor2 <= valor1) valor2 = Math.min(valor1 + 500, teto)
+    const calcularParcela = (valorOferta: number) => (parcelaMensal / valorBase) * valorOferta
+    const calcularSeguro = (valorOferta: number) => Math.max(aprovado.seguro + 4, Math.round(aprovado.seguro * (valorOferta / valorBase)))
+    return [
+      {
+        id: 'oferta-1',
+        valor: valor1,
+        seguro: calcularSeguro(valor1),
+        parcelas: `${parcelasAprovadas}x de ${formatarMoeda(calcularParcela(valor1))}`,
+      },
+      {
+        id: 'oferta-2',
+        valor: valor2,
+        seguro: calcularSeguro(valor2),
+        parcelas: `${parcelasAprovadas}x de ${formatarMoeda(calcularParcela(valor2))}`,
+      },
+    ]
+  }, [aprovado.seguro, parcelaMensal, parcelasAprovadas, tetoModalidade, valor])
   const ofertaSelecionada =
     plano === 'aprovado'
       ? aprovado
       : ofertas.find((oferta) => oferta.id === plano) ?? aprovado
+
+  useEffect(() => {
+    setMostrarOfertas(false)
+    const timer = window.setTimeout(() => setMostrarOfertas(true), 1400)
+    return () => window.clearTimeout(timer)
+  }, [valor])
 
   return (
     <div className="finalizar-page">
@@ -165,34 +210,38 @@ export default function ContaSaqueFinalizar() {
           </div>
           <div className="finalizar-card">
             <div className="finalizar-card__titulo">Temos mais 2 ofertas aprovadas para seu CPF:</div>
-            <div className={plano === '7000' ? 'finalizar-opcao finalizar-opcao--ativa' : 'finalizar-opcao'} onClick={() => setPlano('7000')}>
-              <label>
-                <input type="radio" name="oferta" checked={plano === '7000'} onChange={() => setPlano('7000')} />
-                <div className="finalizar-opcao__info">
-                  <span>Você receberá</span>
-                  <strong>{formatarMoeda(ofertas[0].valor)}</strong>
-                  <div>{ofertas[0].parcelas}</div>
+            {!mostrarOfertas ? (
+              <div className="finalizar-ofertas__loader">
+                <span className="finalizar-ofertas__spinner" />
+                <div className="finalizar-ofertas__texto">
+                  <strong>Mais 2 ofertas aprovadas</strong>
+                  <span>Carregando...</span>
                 </div>
-              </label>
-              <div className="finalizar-opcao__seguro">
-                <span>Seguro</span>
-                <strong>{formatarMoeda(ofertas[0].seguro)}</strong>
               </div>
-            </div>
-            <div className={plano === '11000' ? 'finalizar-opcao finalizar-opcao--ativa' : 'finalizar-opcao'} onClick={() => setPlano('11000')}>
-              <label>
-                <input type="radio" name="oferta" checked={plano === '11000'} onChange={() => setPlano('11000')} />
-                <div className="finalizar-opcao__info">
-                  <span>Você receberá</span>
-                  <strong>{formatarMoeda(ofertas[1].valor)}</strong>
-                  <div>{ofertas[1].parcelas}</div>
-                </div>
-              </label>
-              <div className="finalizar-opcao__seguro">
-                <span>Seguro</span>
-                <strong>{formatarMoeda(ofertas[1].seguro)}</strong>
+            ) : (
+              <div className="finalizar-ofertas finalizar-ofertas--aparecer">
+                {ofertas.map((oferta) => (
+                  <div
+                    key={oferta.id}
+                    className={plano === oferta.id ? 'finalizar-opcao finalizar-opcao--ativa' : 'finalizar-opcao'}
+                    onClick={() => setPlano(oferta.id)}
+                  >
+                    <label>
+                      <input type="radio" name="oferta" checked={plano === oferta.id} onChange={() => setPlano(oferta.id)} />
+                      <div className="finalizar-opcao__info">
+                        <span>Você receberá</span>
+                        <strong>{formatarMoeda(oferta.valor)}</strong>
+                        <div>{oferta.parcelas}</div>
+                      </div>
+                    </label>
+                    <div className="finalizar-opcao__seguro">
+                      <span>Seguro</span>
+                      <strong>{formatarMoeda(oferta.seguro)}</strong>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
           </div>
           <div className="finalizar-rodape">
             <div className="finalizar-rodape__valor">{formatarMoeda(ofertaSelecionada.seguro)}</div>
@@ -205,6 +254,9 @@ export default function ContaSaqueFinalizar() {
                 navigate('/conta/checkout')
               }}
             >
+              <span className="finalizar-rodape__botao-icone">
+                <img src="/pix-106.svg" alt="PIX" />
+              </span>
               Pagar seguro
             </button>
             <div className="finalizar-rodape__info">Pagamento reconhecido automaticamente</div>
